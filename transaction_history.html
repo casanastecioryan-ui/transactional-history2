@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transaction History</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f4;
+      --bg-tertiary: #f0efed;
+      --text-primary: #1a1a18;
+      --text-secondary: #6b6b67;
+      --border-tertiary: rgba(0, 0, 0, 0.12);
+      --border-secondary: rgba(0, 0, 0, 0.22);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1c;
+        --bg-secondary: #2a2a28;
+        --bg-tertiary: #151513;
+        --text-primary: #f0efe9;
+        --text-secondary: #9a9a94;
+        --border-tertiary: rgba(255, 255, 255, 0.12);
+        --border-secondary: rgba(255, 255, 255, 0.22);
+      }
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg-tertiary);
+      min-height: 100vh;
+      padding-bottom: 2rem;
+      color: var(--text-primary);
+    }
+
+    .txn-header {
+      background: var(--bg-primary);
+      border-bottom: 0.5px solid var(--border-tertiary);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+    }
+
+    .back-btn:hover { color: var(--text-primary); }
+
+    .divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border-tertiary);
+    }
+
+    .header-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .filter-bar {
+      padding: 14px 16px 0;
+      max-width: 640px;
+      margin: 0 auto;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+    }
+
+    .filter-chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 0.5px solid var(--border-secondary);
+      background: var(--bg-primary);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .filter-chip.active {
+      background: #185FA5;
+      color: #E6F1FB;
+      border-color: #185FA5;
+    }
+
+    .filter-chip:hover:not(.active) {
+      background: var(--bg-secondary);
+    }
+
+    .txn-list {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .txn-card {
+      background: var(--bg-primary);
+      border: 0.5px solid var(--border-tertiary);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 14px 16px 12px;
+      border-bottom: 0.5px solid var(--border-tertiary);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .ref-block {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .ref-num {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+    }
+
+    .ref-date {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-reserved  { background: #185FA5; color: #E6F1FB; }
+    .badge-completed { background: #3B6D11; color: #EAF3DE; }
+    .badge-cancelled { background: #A32D2D; color: #FCEBEB; }
+    .badge-pending   { background: #854F0B; color: #FAEEDA; }
+
+    .card-items {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .item-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .item-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .item-price {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .card-total {
+      padding: 10px 16px;
+      border-top: 0.5px solid var(--border-tertiary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .total-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .total-amount {
+      font-size: 15px;
+      font-weight: 600;
+      color: #185FA5;
+    }
+
+    .card-notice {
+      margin: 0 16px 12px;
+      background: #FAEEDA;
+      border: 0.5px solid #FAC775;
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .notice-icon {
+      font-size: 13px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .notice-text {
+      font-size: 12px;
+      color: #633806;
+      line-height: 1.5;
+    }
+
+    .card-actions {
+      padding: 0 16px 14px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 9px;
+      border: 0.5px solid var(--border-secondary);
+      border-radius: var(--radius-md);
+      background: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: #A32D2D;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-cancel:hover { background: #FCEBEB; }
+
+    .btn-view {
+      flex: 1;
+      padding: 9px;
+      border: 0.5px solid var(--border-secondary);
+      border-radius: var(--radius-md);
+      background: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-view:hover { background: var(--bg-secondary); }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-secondary);
+    }
+
+    .empty-icon { font-size: 32px; margin-bottom: 12px; }
+    .empty-text { font-size: 14px; }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: var(--bg-primary);
+      border: 0.5px solid var(--border-tertiary);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .modal-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .modal-body {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .modal-ref {
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-modal-cancel {
+      flex: 1;
+      padding: 10px;
+      border: 0.5px solid var(--border-secondary);
+      border-radius: var(--radius-md);
+      background: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-modal-cancel:hover { background: var(--bg-secondary); }
+
+    .btn-modal-confirm {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: var(--radius-md);
+      background: #A32D2D;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: #FCEBEB;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-modal-confirm:hover { background: #791F1F; }
+  </style>
+</head>
+<body>
+
+  <div class="txn-header">
+    <button class="back-btn" onclick="history.back()">&#8592; Back</button>
+    <div class="divider"></div>
+    <span class="header-title">Transaction History</span>
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-chip active" onclick="filterTxns('All', this)">All</button>
+    <button class="filter-chip" onclick="filterTxns('Reserved', this)">Reserved</button>
+    <button class="filter-chip" onclick="filterTxns('Completed', this)">Completed</button>
+    <button class="filter-chip" onclick="filterTxns('Cancelled', this)">Cancelled</button>
+  </div>
+
+  <div class="txn-list" id="txn-list"></div>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <p class="modal-title">Cancel Reservation</p>
+      <p class="modal-body">
+        Are you sure you want to cancel reservation
+        <span class="modal-ref" id="modal-ref"></span>?
+        This action cannot be undone.
+      </p>
+      <div class="modal-actions">
+        <button class="btn-modal-cancel" onclick="closeModal()">Keep it</button>
+        <button class="btn-modal-confirm" onclick="confirmCancel()">Yes, Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const transactions = [
+      {
+        ref: 'QCU-MMYPWARR',
+        date: '3/20/2026, 5:49:28 PM',
+        status: 'Reserved',
+        items: [
+          { name: 'QCU Polo Shirt', sub: '(Male) × 1 (S)', price: 450 },
+          { name: 'QCU Polo Shirt', sub: '(Female) × 1 (S)', price: 450 },
+        ],
+        notice: 'Pickup at QCU Cooperative Store. Bring your Student ID.',
+        cancellable: true,
+      },
+      {
+        ref: 'QCU-AXRTBVWQ',
+        date: '3/15/2026, 10:22:04 AM',
+        status: 'Completed',
+        items: [
+          { name: 'QCU Lab Gown', sub: '(Unisex) × 1 (M)', price: 320 },
+        ],
+        notice: null,
+        cancellable: false,
+      },
+      {
+        ref: 'QCU-NKZPLHDE',
+        date: '3/10/2026, 3:05:17 PM',
+        status: 'Cancelled',
+        items: [
+          { name: 'QCU Polo Shirt', sub: '(Male) × 2 (L)', price: 900 },
+        ],
+        notice: null,
+        cancellable: false,
+      },
+    ];
+
+    const badgeClass = {
+      Reserved:  'badge-reserved',
+      Completed: 'badge-completed',
+      Cancelled: 'badge-cancelled',
+      Pending:   'badge-pending',
+    };
+
+    let pendingCancelRef = null;
+
+    function formatPrice(n) {
+      return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    }
+
+    function renderCard(t) {
+      const total = t.items.reduce((s, i) => s + i.price, 0);
+
+      const itemsHTML = t.items.map(i => `
+        <div class="item-row">
+          <div class="item-info">
+            <span class="item-name">${i.name}</span>
+            <span class="item-sub">${i.sub}</span>
+          </div>
+          <span class="item-price">${formatPrice(i.price)}</span>
+        </div>
+      `).join('');
+
+      const noticeHTML = t.notice ? `
+        <div class="card-notice">
+          <span class="notice-icon">📍</span>
+          <span class="notice-text">${t.notice}</span>
+        </div>
+      ` : '';
+
+      const actionsHTML = t.cancellable ? `
+        <div class="card-actions">
+          <button class="btn-cancel" onclick="openModal('${t.ref}')">Cancel Reservation</button>
+        </div>
+      ` : `
+        <div class="card-actions">
+          <button class="btn-view" onclick="viewDetails('${t.ref}')">View Details</button>
+        </div>
+      `;
+
+      return `
+        <div class="txn-card" id="card-${t.ref}" data-status="${t.status}">
+          <div class="card-header">
+            <div class="ref-block">
+              <span class="ref-num">${t.ref}</span>
+              <span class="ref-date">${t.date}</span>
+            </div>
+            <span class="badge ${badgeClass[t.status] || ''}">${t.status}</span>
+          </div>
+          <div class="card-items">${itemsHTML}</div>
+          <div class="card-total">
+            <span class="total-label">Total</span>
+            <span class="total-amount">${formatPrice(total)}</span>
+          </div>
+          ${noticeHTML}
+          ${actionsHTML}
+        </div>
+      `;
+    }
+
+    function render(filter) {
+      const list = document.getElementById('txn-list');
+      const filtered = filter === 'All'
+        ? transactions
+        : transactions.filter(t => t.status === filter);
+
+      if (filtered.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🧾</div>
+            <p class="empty-text">No ${filter.toLowerCase()} transactions found.</p>
+          </div>`;
+      } else {
+        list.innerHTML = filtered.map(renderCard).join('');
+      }
+    }
+
+    function filterTxns(status, el) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      render(status);
+    }
+
+    function openModal(ref) {
+      pendingCancelRef = ref;
+      document.getElementById('modal-ref').textContent = ref;
+      document.getElementById('modal').classList.add('show');
+    }
+
+    function closeModal() {
+      pendingCancelRef = null;
+      document.getElementById('modal').classList.remove('show');
+    }
+
+    function confirmCancel() {
+      if (!pendingCancelRef) return;
+
+      const txn = transactions.find(t => t.ref === pendingCancelRef);
+      if (txn) {
+        txn.status = 'Cancelled';
+        txn.cancellable = false;
+        txn.notice = null;
+      }
+
+      closeModal();
+
+      const activeFilter = document.querySelector('.filter-chip.active').textContent;
+      render(activeFilter);
+    }
+
+    function viewDetails(ref) {
+      alert('Viewing details for ' + ref);
+    }
+
+    document.getElementById('modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    render('All');
+  </script>
+
+</body>
+</html>
